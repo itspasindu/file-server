@@ -2,42 +2,74 @@ from flask import Flask, render_template, request, redirect, url_for, send_from_
 import os
 import pyotp
 import qrcode
-from io import BytesIO
 import base64
+from io import BytesIO
+from datetime import datetime
+import secrets
 
 # Set up Flask app
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # Use a more secure key in production
+app.secret_key = secrets.token_hex(32)  # Generate a secure random secret key
 
 # Directory to save uploaded files
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
 
 # Ensure the upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Generate a random secret key for OTP
-SECRET_KEY = pyotp.random_base32()
-totp = pyotp.TOTP(SECRET_KEY)
+# TOTP setup
+TOTP_SECRET_FILE = 'totp_secret.txt'
 
-@app.route('/setup-otp')
-def setup_otp():
-    # Generate the OTP URI
-    provisioning_uri = totp.provisioning_uri("FileServer:Admin", issuer_name="FileServer")
+def get_totp_secret():
+    if os.path.exists(TOTP_SECRET_FILE):
+        with open(TOTP_SECRET_FILE, 'r') as f:
+            return f.read().strip()
+    else:
+        secret = pyotp.random_base32()
+        with open(TOTP_SECRET_FILE, 'w') as f:
+            f.write(secret)
+        return secret
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+TOTP_SECRET = get_totp_secret()
+totp = pyotp.TOTP(TOTP_SECRET)
+
+@app.route('/setup')
+def setup():
+    # Generate a new QR code
+    provisioning_url = totp.provisioning_uri("FileShareApp:User", issuer_name="FileShareApp")
     
-    # Generate QR code
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(provisioning_uri)
+    # Create QR code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(provisioning_url)
     qr.make(fit=True)
+
+    # Create QR code image
     img = qr.make_image(fill_color="black", back_color="white")
     
-    # Convert QR code to base64 string
+    # Convert image to base64 string
     buffered = BytesIO()
     img.save(buffered, format="PNG")
-    qr_code = base64.b64encode(buffered.getvalue()).decode()
+    img_str = base64.b64encode(buffered.getvalue()).decode()
     
-    return render_template('setup_otp.html', secret_key=SECRET_KEY, qr_code=qr_code)
+    return render_template('setup.html', 
+                         secret=TOTP_SECRET, 
+                         qr_code=img_str,
+                         provisioning_url=provisioning_url)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -45,6 +77,7 @@ def index():
         entered_otp = request.form.get('otp')
         if totp.verify(entered_otp):
             session['verified'] = True
+            session['last_activity'] = datetime.now().timestamp()
             return redirect(url_for('file_panel'))
         else:
             flash('Invalid OTP. Please try again.')
@@ -56,7 +89,17 @@ def file_panel():
     if not session.get('verified'):
         return redirect(url_for('index'))
     
+    # Session timeout after 30 minutes of inactivity
+    last_activity = session.get('last_activity')
+    if last_activity is None or datetime.now().timestamp() - last_activity > 1800:  # 30 minutes
+        session.clear()
+        flash('Session expired. Please login again.')
+        return redirect(url_for('index'))
+    
+    session['last_activity'] = datetime.now().timestamp()
     files = os.listdir(app.config['UPLOAD_FOLDER'])
+    # Sort files by modification time
+    files.sort(key=lambda x: os.path.getmtime(os.path.join(app.config['UPLOAD_FOLDER'], x)), reverse=True)
     return render_template('index.html', files=files)
 
 @app.route('/upload', methods=['POST'])
@@ -73,31 +116,70 @@ def upload_file():
         flash('No selected file')
         return redirect(url_for('file_panel'))
 
-    # Save the file
-    if file:
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(file_path)
-        flash(f'{file.filename} uploaded successfully!')
-        return redirect(url_for('file_panel'))
+    if file and allowed_file(file.filename):
+        # Secure the filename
+        filename = file.filename
+        # Save the file
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        try:
+            file.save(file_path)
+            flash(f'{filename} uploaded successfully!')
+        except Exception as e:
+            flash(f'Error uploading file: {str(e)}')
+    else:
+        flash('File type not allowed')
+    
+    return redirect(url_for('file_panel'))
 
 @app.route('/download/<filename>')
 def download_file(filename):
     if not session.get('verified'):
         return redirect(url_for('index'))
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
+    try:
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
+    except Exception as e:
+        flash(f'Error downloading file: {str(e)}')
+        return redirect(url_for('file_panel'))
 
 @app.route('/delete/<filename>', methods=['POST'])
 def delete_file(filename):
     if not session.get('verified'):
         return redirect(url_for('index'))
+    
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        flash(f'{filename} deleted successfully!')
-    else:
-        flash(f'File {filename} not found')
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            flash(f'{filename} deleted successfully!')
+        else:
+            flash(f'File {filename} not found')
+    except Exception as e:
+        flash(f'Error deleting file: {str(e)}')
+    
     return redirect(url_for('file_panel'))
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Logged out successfully')
+    return redirect(url_for('index'))
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('error.html', error='404 - Page Not Found'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('error.html', error='500 - Internal Server Error'), 500
+
+@app.before_request
+def before_request():
+    if session.get('verified'):
+        # Update last activity timestamp
+        session['last_activity'] = datetime.now().timestamp()
+
 if __name__ == '__main__':
-    print(f"OTP Secret Key: {SECRET_KEY}")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print(f"TOTP Secret: {TOTP_SECRET}")
+    print("Visit /setup to get the Google Authenticator setup URL")
+    # In production, use proper SSL certificates
+    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('cert.pem', 'key.pem'))

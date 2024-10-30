@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Authenticator Setup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .setup-container {
+            text-align: center;
+        }
+        .qr-code {
+            margin: 20px auto;
+            max-width: 300px;
+        }
+        .qr-code img {
+            width: 100%;
+            height: auto;
+        }
+        .secret-key {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 20px 0;
+        }
+        .instructions {
+            text-align: left;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="setup-container">
+                <h2>Google Authenticator Setup</h2>
+                
+                <div class="instructions">
+                    <h3>Setup Instructions:</h3>
+                    <ol>
+                        <li>Install Google Authenticator on your phone</li>
+                        <li>Open Google Authenticator app</li>
+                        <li>Tap the + button</li>
+                        <li>Choose "Scan a QR code"</li>
+                        <li>Scan the QR code below</li>
+                        <li>Or manually enter the secret key provided</li>
+                    </ol>
+                </div>
+
+                <div class="qr-code">
+                    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+                </div>
+
+                <div class="secret-key">
+                    <p><strong>Secret Key:</strong></p>
+                    <p>{{ secret }}</p>
+                </div>
+
+                <p><a href="{{ url_for('index') }}" class="btn">Return to Login</a></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

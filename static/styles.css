@@ -122,3 +122,48 @@ input[type="text"] {
 .file-label:hover {
     background-color: #5a6268;
 }
+
+/* Add these to your existing styles.css file */
+.setup-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.secret-key {
+    word-break: break-all;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 20px 0;
+}
+
+.instructions {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 4px;
+    margin: 20px 0;
+}
+
+.instructions ol {
+    text-align: left;
+    margin-left: 20px;
+}
+
+.qr-code {
+    background: white;
+    padding: 20px;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 20px 0;
+}
+
+.qr-code img {
+    max-width: 100%;
+    height: auto;
+}
+
+a.btn {
+    display: inline-block;
+    text-decoration: none;
+    margin-top: 20px;
+}

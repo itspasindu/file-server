@@ -25,10 +25,12 @@
                 <input type="text" name="otp" placeholder="Enter OTP" required>
                 <button type="submit" class="btn">Verify</button>
             </form>
+
+            <p style="margin-top: 20px; text-align: center;">
+                <a href="{{ url_for('setup') }}">Setup Google Authenticator</a>
+            </p>
             
-            <div style="margin-top: 20px; text-align: center;">
-                <a href="{{ url_for('setup_otp') }}">Setup Google Authenticator</a>
-            </div>
+            
         </div>
     </div>
 </body>
