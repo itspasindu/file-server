@@ -19,7 +19,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 def generate_otp():
     return ''.join(random.choices(string.digits, k=6))
 
-OTP = 12345
+OTP = generate_otp()
 
 @app.route('/otp')
 def show_otp():
@@ -86,4 +86,4 @@ def delete_file(filename):
 
 if __name__ == '__main__':
     print(f"OTP for server access: {OTP}")
-    app.run(host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))
+    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('cert.pem', 'key.pem'))
