@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session
 import os
-import random
-import string
-app = Flask(__name__, static_folder='static')
+import pyotp
+import qrcode
+from io import BytesIO
+import base64
+
 # Set up Flask app
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Use a more secure key in production
@@ -15,21 +17,33 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Generate OTP
-def generate_otp():
-    return ''.join(random.choices(string.digits, k=6))
+# Generate a random secret key for OTP
+SECRET_KEY = pyotp.random_base32()
+totp = pyotp.TOTP(SECRET_KEY)
 
-OTP = generate_otp()
-
-@app.route('/otp')
-def show_otp():
-    return f"OTP for server access: {OTP}"
+@app.route('/setup-otp')
+def setup_otp():
+    # Generate the OTP URI
+    provisioning_uri = totp.provisioning_uri("FileServer:Admin", issuer_name="FileServer")
+    
+    # Generate QR code
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convert QR code to base64 string
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    qr_code = base64.b64encode(buffered.getvalue()).decode()
+    
+    return render_template('setup_otp.html', secret_key=SECRET_KEY, qr_code=qr_code)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         entered_otp = request.form.get('otp')
-        if entered_otp == OTP:
+        if totp.verify(entered_otp):
             session['verified'] = True
             return redirect(url_for('file_panel'))
         else:
@@ -85,5 +99,5 @@ def delete_file(filename):
     return redirect(url_for('file_panel'))
 
 if __name__ == '__main__':
-    print(f"OTP for server access: {OTP}")
-    app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    print(f"OTP Secret Key: {SECRET_KEY}")
+    app.run(host='0.0.0.0', port=5000, debug=True)

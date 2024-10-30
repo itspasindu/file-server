@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Google Authenticator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Setup Google Authenticator</h2>
+            
+            <div class="setup-instructions">
+                <p>1. Install Google Authenticator on your phone</p>
+                <p>2. Scan the QR code or enter the secret key manually:</p>
+                
+                <div class="secret-key" style="background: #f0f0f0; padding: 10px; margin: 20px 0; text-align: center;">
+                    <strong>Secret Key:</strong> {{ secret_key }}
+                </div>
+                
+                <div class="qr-code" style="text-align: center; margin: 20px 0;">
+                    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+                </div>
+                
+                <p>3. Enter the code shown in Google Authenticator to verify setup:</p>
+                
+                <form action="{{ url_for('index') }}" method="POST">
+                    <input type="text" name="otp" placeholder="Enter OTP" required>
+                    <button type="submit" class="btn">Verify Setup</button>
+                </form>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="{{ url_for('index') }}">Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
