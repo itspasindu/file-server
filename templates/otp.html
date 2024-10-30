@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>OTP Verification</h2>
+            
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                <div class="alert">
+                  {% for message in messages %}
+                    <p>{{ message }}</p>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+
+            <form action="{{ url_for('index') }}" method="POST">
+                <input type="text" name="otp" placeholder="Enter OTP" required>
+                <button type="submit" class="btn">Verify</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
