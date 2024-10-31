@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, session
+from flask_mail import Mail, Message  # Add this import
 import os
 import pyotp
 import qrcode
@@ -11,10 +12,20 @@ import secrets
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)  # Generate a secure random secret key
 
+# Email configuration - Add these lines after app initialization
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = ' your username'
+app.config['MAIL_PASSWORD'] = 'your app password'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
+
 # Directory to save uploaded files
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
@@ -124,6 +135,13 @@ def upload_file():
         try:
             file.save(file_path)
             flash(f'{filename} uploaded successfully!')
+            
+            # Send email notification
+            msg = Message('File Uploaded',
+                          sender=app.config['MAIL_USERNAME'],
+                          recipients=['pasindudewviman59@gmail.com'])
+            msg.body = f"A new file '{filename}' has been uploaded."
+            mail.send(msg)
         except Exception as e:
             flash(f'Error uploading file: {str(e)}')
     else:
